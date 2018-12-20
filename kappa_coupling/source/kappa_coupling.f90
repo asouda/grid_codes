@@ -43,7 +43,7 @@ program kappa_coupling
    integer, parameter :: korder=3
 
    integer :: n, i, j, k, im, nstates, npoints, npntspow2, ixc, istate, jstate
-   integer :: iargc, narg, filename_offset
+   integer :: iargc, narg, filename_offset, split_level_plus, split_level_minus
    real(kind=8) :: x_left, x_right, dx, xh, mass, fcij, phase, dpot_left, dpot_right
    real(kind=8) :: xp, h11, h22, h12, v12x
    real(kind=8) :: sh, dh, shift_l, shift_r
@@ -52,6 +52,7 @@ program kappa_coupling
    real(kind=8), allocatable, dimension(:)   :: x_data, e0_data, e1_data, h11_data, h22_data, h12_data, x
    real(kind=8), allocatable, dimension(:)   :: pot_l, pot_r, xpot_l, xpot_r, pot_ground, pot_excited
    real(kind=8), allocatable, dimension(:)   :: el_coupling, en_l, en_r, en_ground, pot_diff
+   real(kind=8), allocatable, dimension(:)   :: wavef_plus, wavef_minus, overlaps_plus, overlaps_minus
    real(kind=8), allocatable, dimension(:,:) :: wavef_l, wavef_r, wavef_ground, vib_overlap, vib_coupling_diab
    real(kind=8), allocatable, dimension(:,:) :: p_adiabaticity, tau_p, tau_e, kappa
    real(kind=8), allocatable, dimension(:,:) :: vib_coupling_kappa, vib_coupling_product, tunn_splitting
@@ -360,6 +361,7 @@ program kappa_coupling
    allocate (xpot_l(n), xpot_r(n), pot_diff(n))
    allocate (pot_ground(n), pot_excited(n))
    allocate (en_ground(n), wavef_ground(n,n))
+   allocate (wavef_plus(n), wavef_minus(n), overlaps_plus(nstates), overlaps_minus(nstates))
 
    write(*,*)
    write(*,'("#",160("="))')
@@ -431,6 +433,14 @@ program kappa_coupling
          cycle
       endif
 
+      !-- calculate symmetric (plus) and antisymmetric (minus) combinations
+      !   of the reactant and product diabatic states
+
+      do k=1,n
+         wavef_plus(k)  = (wavef_l(k,istate) + wavef_r(k,jstate))/sqrt(2.d0)
+         wavef_minus(k) = (wavef_l(k,istate) - wavef_r(k,jstate))/sqrt(2.d0)
+      enddo
+
       !-- diagonalize 2x2 electronic Hamiltonian matrix
       !   to obtain ground and excited state adiabatic potentials
 
@@ -479,18 +489,32 @@ program kappa_coupling
       wavef_ground = 0.d0
       call schroedinger(n,xh,mass,pot_ground,en_ground,wavef_ground)
 
-      !-- find two levels closest to and on opposite sides of the tunneling energy (zero);
+      !-- find two states with the latrgest overlaps with symmetric and antisymmetric
+      !   combinations of the reactant and product diabatic states;
       !   splitting between these two levels is the tunneling splitting
       !   for a given tunneling energy
 
-      do i=2,n
-         viblevel1 = en_ground(i-1)
-         viblevel2 = en_ground(i)
-         if (viblevel1*viblevel2.le.0.d0) then
-            tunn_splitting(istate,jstate) = viblevel2 - viblevel1
-            exit
-         endif
+      !-- absolute values of overlaps
+      overlaps_plus  = 0.d0
+      overlaps_minus = 0.d0
+      do i=1,nstates
+         do k=1,n
+            overlaps_plus(i)  = overlaps_plus(i) + wavef_plus(k) *wavef_ground(i,k)
+            overlaps_minus(i) = overlaps_plus(i) + wavef_minus(k)*wavef_ground(i,k)
+         enddo
       enddo
+      overlaps_plus  = abs(overlaps_plus)
+      overlaps_minus = abs(overlaps_minus)
+
+      !-- find the indices of the largest overlaps
+      split_level_plus  = 1
+      split_level_minus = 1
+      do i=2,nstates
+         if (overlaps_plus(i) .gt.overlaps_plus(i-1))  split_level_plus  = i
+         if (overlaps_minus(i).gt.overlaps_minus(i-1)) split_level_minus = i
+      enddo
+
+      tunn_splitting(istate,jstate) = abs(en_ground(split_level_minus) - en_ground(split_level_plus))
 
       !-- half of this tunneling splitting times kappa
       !   is the semiclassical vibronic coupling
@@ -563,6 +587,7 @@ program kappa_coupling
    deallocate (vib_coupling_kappa)
    deallocate (vib_coupling_product)
    deallocate (en_ground, wavef_ground)
+   deallocate (wavef_plus, wavef_minus, overlaps_plus, overlaps_minus)
 
    deallocate (x, pot_l, en_l, wavef_l, pot_r, en_r, wavef_r)
    deallocate (x_data)
