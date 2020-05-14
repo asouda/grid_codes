@@ -9,8 +9,9 @@
 
 FC      = gfortran
 FCFLAGS = -O2
+F77FLAGS = -O2 -std=legacy
 PROGRAM = fgh_bspline
-LDFLAGS =
+LDFLAGS = 
 EXEDIR  = ../bin
 EXE     = $(EXEDIR)/$(PROGRAM).bin
 
@@ -20,7 +21,7 @@ EXE     = $(EXEDIR)/$(PROGRAM).bin
 	$(FC) -c $(FCFLAGS) -o $*.o $*.f90
 
 %.o : %.f
-	$(FC) -c $(FCFLAGS) -o $*.o $*.f
+	$(FC) -c $(F77FLAGS) -o $*.o $*.f
 
 %.mod : %.o
 	@if [ ! -f $@ ]; then rm $< ; $(MAKE) $< ; fi
