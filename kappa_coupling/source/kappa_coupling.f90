@@ -73,12 +73,15 @@ program kappa_coupling
       write(*,*)
       write(*,*) "=================================================================================================="
       write(*,*) " Usage:"
+      write(*,*)
       write(*,*) "   xxx.bin <name_of_the_file_with_PT profiles> <n_grid_points> <particle_mass> <number_of_states>"
-      write(*,*) "   Columns in file_with_PT_profiles (energies and couplings in kcal/mol):"
+      write(*,*)
+      write(*,*) "   Columns in file_with_PT_profiles (diabatic energies and couplings in kcal/mol):"
       write(*,*) "   x(A)   H11   H22   V12"
-      write(*,*) "   ..."
-      write(*,*) "   Number of grid points should be power of two (32,64,128,etc)"
-      write(*,*) "   particle_mass should be in electron mass units"
+      write(*,*)
+      write(*,*) "   Number of grid points should be power of two (default is 1024)"
+      write(*,*) "   particle_mass should be in electron mass units (default is mass of a proton: 1836.15 emu)"
+      write(*,*) "   default number of states in each diabatic potential is 1"
       write(*,*) "=================================================================================================="
       stop
    endif
@@ -117,8 +120,13 @@ program kappa_coupling
    write(*,'( 1x,"Number of data points:              ",i12)') npoints
 
    !-- n - number of grid points (should be power of two!)
-   call getarg(2,argument)
-   read(argument,*) n
+
+   if (narg.gt.1) then
+      call getarg(2,argument)
+      read(argument,*) n
+   else
+      n = 1024
+   endif
 
    if (.not.power2(n)) then
       write(*,'(/1x,"*** The number of grid points (",I3,") is not a power of two.")') n
@@ -135,8 +143,12 @@ program kappa_coupling
 
    !-- Mass of the quantum particle (electronic mass units)
 
-   call getarg(3,argument)
-   read(argument,*) mass
+   if (narg.gt.2) then
+      call getarg(3,argument)
+      read(argument,*) mass
+   else
+      mass = 1836.152701d0
+   endif
 
    !select case(im)
    !   case(0)
@@ -160,8 +172,17 @@ program kappa_coupling
    write(*,'( 1x,"                              ",f15.6," atomic mass units")') mass/dalton
 
    !-- nstates - number of states of interest in the left and right potentials
-   call getarg(4,argument)
-   read(argument,*) nstates
+
+   if (narg.gt.3) then
+      call getarg(4,argument)
+      read(argument,*) nstates
+   else
+      nstates = 1
+   endif
+
+   if (nstates.le.0) nstates = 1
+
+   write(*,'(/1x,"Number of vibrational states in each diabatic potential: ",i5)') nstates
 
    !-- allocate arrays
    allocate (x_data(npoints))
@@ -361,13 +382,15 @@ program kappa_coupling
    allocate (xpot_l(n), xpot_r(n), pot_diff(n))
    allocate (pot_ground(n), pot_excited(n))
    allocate (en_ground(n), wavef_ground(n,n))
-   allocate (wavef_plus(n), wavef_minus(n), overlaps_plus(nstates), overlaps_minus(nstates))
+   allocate (wavef_plus(n), wavef_minus(n), overlaps_plus(2*nstates), overlaps_minus(2*nstates))
 
    write(*,*)
    write(*,'("#",160("="))')
    write(*,*) "# SEMICLASSICAL PARAMETERS"
    write(*,*) "# i - reactant state index (starting from 0)"
    write(*,*) "# j - product  state index (starting from 0)"
+   write(*,*) "# i_ad - tunneling state index (starting from 0)"
+   write(*,*) "# j_ad - tunneling  state index (starting from 0)"
    write(*,*) "# Sij - vibrational overlap integral"
    write(*,*) "# V^el - electronic coupling at the crossing point (kcal/mol)"
    write(*,*) "# tau_e - electronic transition time (fs)"
@@ -376,12 +399,12 @@ program kappa_coupling
    write(*,*) "# kappa - Stuchebrukhov prefactor"
    write(*,*) "# Delta - tunneling splitting in ground state adiabatic potential (kcal/mol)"
    write(*,*) "# V^el*<i|j> - vibronic coupling in electronically nonadiabatic limit (kcal/mol)"
-   write(*,*) "# V^vib = kappa*Delta - vibronic coupling (kcal/mol)"
+   write(*,*) "# V^vib = kappa*Delta - semiclassical vibronic coupling (kcal/mol)"
    write(*,*) "# Delta/2 - vibronic coupling in electronically adiabatic limit"
-   write(*,'("#",160("="))')
-   write(*,'("#",t4,"i",t8,"j",t14,"<i|j>",t30,"V^el",t43,"tau_e",t59,"tau_p",t76,"p",t88,&
-   &"kappa",t104,"Delta",t117,"V^el*|<i|j>|",t134,"V^(sc)",t148,"Delta/2")')
-   write(*,'("#",160("-"))')
+   write(*,'("#",168("="))')
+   write(*,'("#",t4,"i",t8,"j",t12,"i_a",t16,"j_a",t22,"<i|j>",t38,"V^el",t51,"tau_e",t67,"tau_p",t84,"p",t96,&
+   &"kappa",t112,"Delta",t125,"V^el*|<i|j>|",t142,"V^(sc)",t156,"Delta/2")')
+   write(*,'("#",168("-"))')
 
    do istate=1,nstates
       do jstate=1,nstates
@@ -410,7 +433,6 @@ program kappa_coupling
             exit
          endif
       enddo
-
 
       !-- electronic coupling at the crossing point
       v12x  = 0.5d0*(el_coupling(ixc)  + el_coupling(ixc-1))*kcal2au
@@ -484,23 +506,23 @@ program kappa_coupling
 
       !-- calculate tunneling splitting in the ground state adiabatic potential
 
-      !-- calculate vibrational lwavefunctions and energy levels in the ground state adiabatic potential
+      !-- calculate vibrational wavefunctions and energy levels in the ground state adiabatic potential
       en_ground = 0.d0
       wavef_ground = 0.d0
       call schroedinger(n,xh,mass,pot_ground,en_ground,wavef_ground)
 
-      !-- find two states with the latrgest overlaps with symmetric and antisymmetric
+      !-- find two states with the largest overlaps with symmetric and antisymmetric
       !   combinations of the reactant and product diabatic states;
       !   splitting between these two levels is the tunneling splitting
       !   for a given tunneling energy
 
       !-- absolute values of overlaps
-      overlaps_plus  = 0.d0
-      overlaps_minus = 0.d0
-      do i=1,nstates
+      do i=1,2*nstates
+         overlaps_plus(i)  = 0.d0
+         overlaps_minus(i) = 0.d0
          do k=1,n
-            overlaps_plus(i)  = overlaps_plus(i) + wavef_plus(k) *wavef_ground(i,k)
-            overlaps_minus(i) = overlaps_plus(i) + wavef_minus(k)*wavef_ground(i,k)
+            overlaps_plus(i)  = overlaps_plus(i)  + wavef_plus(k) *wavef_ground(k,i)
+            overlaps_minus(i) = overlaps_minus(i) + wavef_minus(k)*wavef_ground(k,i)
          enddo
       enddo
       overlaps_plus  = abs(overlaps_plus)
@@ -509,10 +531,30 @@ program kappa_coupling
       !-- find the indices of the largest overlaps
       split_level_plus  = 1
       split_level_minus = 1
-      do i=2,nstates
-         if (overlaps_plus(i) .gt.overlaps_plus(i-1))  split_level_plus  = i
-         if (overlaps_minus(i).gt.overlaps_minus(i-1)) split_level_minus = i
+      do i=1,2*nstates
+         if (overlaps_plus(i) .gt.overlaps_plus(split_level_plus))  split_level_plus  = i
+         if (overlaps_minus(i).gt.overlaps_minus(split_level_minus)) split_level_minus = i
       enddo
+
+      !-- output the adiabatic potentials for a pair of diabatic potentials
+      !   shifted to align ground state vibrational levels
+
+      if (istate.eq.1.and.jstate.eq.1) then
+
+         open(unit=1,file=data_file(1:filename_offset)//"_adiabatic.dat")
+         do k=1,n
+            write(1,'(60g20.10)') x(k), pot_ground(k), pot_excited(k)
+         enddo
+         close(1)
+
+         open(unit=1,file=data_file(1:filename_offset)//"_plus-minus.dat")
+         do k=1,n
+            write(1,'(60g20.10)') x(k), wavef_plus(k), wavef_minus(k), &
+            & wavef_ground(k,split_level_plus), wavef_ground(k,split_level_minus)
+         enddo
+         close(1)
+
+      endif
 
       tunn_splitting(istate,jstate) = abs(en_ground(split_level_minus) - en_ground(split_level_plus))
 
@@ -523,15 +565,16 @@ program kappa_coupling
 
       !-- output the tables
 
-      write(*,'(2i4,10g15.6)')&
-      & istate, jstate, vib_overlap(istate,jstate), v12x*au2kcal,tau_e(istate,jstate), tau_p(istate,jstate),&
+      write(*,'(4i4,10g15.6)')&
+      & istate-1, jstate-1, split_level_plus-1, split_level_minus-1, vib_overlap(istate,jstate), v12x*au2kcal,&
+      & tau_e(istate,jstate), tau_p(istate,jstate),&
       & p_adiabaticity(istate,jstate), kappa(istate,jstate), tunn_splitting(istate,jstate),&
       & vib_coupling_product(istate,jstate), vib_coupling_kappa(istate,jstate), 0.5d0*tunn_splitting(istate,jstate)
 
       enddo
    enddo
 
-   write(*,'("#",160("="))')
+   write(*,'("#",168("="))')
 
    open(unit=2,file=data_file(1:filename_offset)//"_vibcouplings_product.dat")
    do i=1,nstates

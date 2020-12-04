@@ -8,7 +8,8 @@
 .SUFFIXES: .o .mod .f90 .f
 
 FC      = gfortran
-FCFLAGS = -O2
+F90FLAGS = -O2
+F77FLAGS = -O2 -ffixed-form -std=legacy
 PROGRAM = kappa_coupling
 LDFLAGS =
 EXEDIR  = ../bin
@@ -17,10 +18,10 @@ EXE     = $(EXEDIR)/$(PROGRAM).bin
 # rules
 
 %.o : %.f90
-	$(FC) -c $(FCFLAGS) -o $*.o $*.f90
+	$(FC) -c $(F90FLAGS) -o $*.o $*.f90
 
 %.o : %.f
-	$(FC) -c $(FCFLAGS) -o $*.o $*.f
+	$(FC) -c $(F77FLAGS) -o $*.o $*.f
 
 %.mod : %.o
 	@if [ ! -f $@ ]; then rm $< ; $(MAKE) $< ; fi
@@ -37,7 +38,7 @@ build:
 
 all:    build
 	@echo "*** linking $(PROGRAM) ***"
-	$(FC) $(FCFLAGS) $(LDFLAGS) -o $(EXE) $(SRCOBJ) $(MODOBJ)
+	$(FC) $(LDFLAGS) -o $(EXE) $(SRCOBJ) $(MODOBJ)
 	@echo "---------------------------------------------------------------------------------------"
 	@size $(EXE)
 	@echo "---------------------------------------------------------------------------------------"
