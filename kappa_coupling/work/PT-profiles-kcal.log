@@ -1,0 +1,52 @@
+
+ Left  integration limit:               -0.500000 A
+ Right integration limit:                0.500000 A
+ Length of the integration interval:     1.000000 A
+ Number of data points:                        21
+
+ Number of grid points for splined potentials:       1024
+
+ Mass of the quantum particle:     1836.152701 electronic mass units
+                                      1.007276 atomic mass units
+
+ Number of vibrational states in each diabatic potential:     3
+
+  Left potential: time elapsed -->    2.1778421909548342       seconds
+
+ Eigenvalues (kcal/mol):
+   4.7171733678794698        13.161931891910907        20.866000468832205     
+
+ Right potential: time elapsed -->    2.1704308986663818       seconds
+
+ Eigenvalues (kcal/mol):
+   4.7171380317225768        13.161935577486139        20.865998174974504     
+
+#================================================================================================================================================================
+ # SEMICLASSICAL PARAMETERS
+ # i - reactant state index (starting from 0)
+ # j - product  state index (starting from 0)
+ # i_ad - tunneling state index (starting from 0)
+ # j_ad - tunneling  state index (starting from 0)
+ # Sij - vibrational overlap integral
+ # V^el - electronic coupling at the crossing point (kcal/mol)
+ # tau_e - electronic transition time (fs)
+ # tau_p - proton tunneling time (fs)
+ # p = tau_e/tau_p - adiabaticity parameter
+ # kappa - Stuchebrukhov prefactor
+ # Delta - tunneling splitting in ground state adiabatic potential (kcal/mol)
+ # V^el*<i|j> - vibronic coupling in electronically nonadiabatic limit (kcal/mol)
+ # V^vib = kappa*Delta - semiclassical vibronic coupling (kcal/mol)
+ # Delta/2 - vibronic coupling in electronically adiabatic limit
+#========================================================================================================================================================================
+#  i   j   i_a j_a   <i|j>           V^el         tau_e           tau_p            p           kappa           Delta        V^el*|<i|j>|     V^(sc)        Delta/2
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+   0   0   0   1   0.560797E-01    1.24719        503.140        4.45348       0.885137E-02   0.225305       0.618409       0.699418E-01   0.696653E-01   0.309205    
+   0   1   1   2   0.195447        1.40622        446.239        7.92014       0.177486E-01   0.308480        1.92231       0.274841       0.296497       0.961155    
+ --------------- tunneling energy is above the barrier ------------
+   1   0   2   1  -0.195446        1.40639        446.185        7.84251       0.175768E-01   0.307167        1.92231       0.274873       0.295235       0.961154    
+ --------------- tunneling energy is above the barrier ------------
+ --------------- tunneling energy is above the barrier ------------
+ --------------- tunneling energy is above the barrier ------------
+ --------------- tunneling energy is above the barrier ------------
+ --------------- tunneling energy is above the barrier ------------
+#========================================================================================================================================================================
