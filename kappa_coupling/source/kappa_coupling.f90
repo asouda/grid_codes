@@ -567,7 +567,7 @@ program kappa_coupling
 
       write(*,'(4i4,10g15.6)')&
       & istate-1, jstate-1, split_level_plus-1, split_level_minus-1, vib_overlap(istate,jstate), v12x*au2kcal,&
-      & tau_e(istate,jstate), tau_p(istate,jstate),&
+      & tau_e(istate,jstate)*au2fs, tau_p(istate,jstate)*au2fs,&
       & p_adiabaticity(istate,jstate), kappa(istate,jstate), tunn_splitting(istate,jstate),&
       & vib_coupling_product(istate,jstate), vib_coupling_kappa(istate,jstate), 0.5d0*tunn_splitting(istate,jstate)
 
@@ -596,13 +596,13 @@ program kappa_coupling
 
    open(unit=2,file=data_file(1:filename_offset)//"_tau_e.dat")
    do i=1,nstates
-      write(2,'(40g20.10)') (tau_e(i,k),k=1,nstates)
+      write(2,'(40g20.10)') (tau_e(i,k)*au2fs,k=1,nstates)
    enddo
    close(2)
 
    open(unit=2,file=data_file(1:filename_offset)//"_tau_p.dat")
    do i=1,nstates
-      write(2,'(40g20.10)') (tau_p(i,k),k=1,nstates)
+      write(2,'(40g20.10)') (tau_p(i,k)*au2fs,k=1,nstates)
    enddo
    close(2)
 
