@@ -321,15 +321,24 @@ program kappa_coupling
 
    open(unit=1,file=data_file(1:filename_offset)//"_left.dat")
    do i=1,n
-      write(1,'(60g20.10)') x(i),pot_l(i),(en_l(k),en_l(k)+wavef_l(i,k)*30.d0,k=1,nstates)
+      write(1,'(60g20.10)') x(i), pot_l(i), (en_l(k),en_l(k) + wavef_l(i,k)*30.d0, k=1,nstates)
    enddo
    close(1)
 
    open(unit=1,file=data_file(1:filename_offset)//"_right.dat")
    do i=1,n
-      write(1,'(60g20.10)') x(i), pot_r(i), (en_r(k),en_r(k) + wavef_r(i,k)*30.d0,k=1,nstates)
+      write(1,'(60g20.10)') x(i), pot_r(i), (en_r(k),en_r(k) + wavef_r(i,k)*30.d0, k=1,nstates)
    enddo
    close(1)
+
+   !-- output the electronic couplings
+
+   open(unit=1,file=data_file(1:filename_offset)//"_elcouplings.dat")
+   do i=1,n
+      write(1,'(60g20.10)') x(i), el_coupling(i)
+   enddo
+   close(1)
+
 
    !-- calculate Franck-Condon factors (overlaps)
 
