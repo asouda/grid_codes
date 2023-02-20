@@ -13,7 +13,7 @@ F77FLAGS = -O2 -std=legacy
 PROGRAM = fgh_bspline
 LDFLAGS = 
 EXEDIR  = ../bin
-EXE     = $(EXEDIR)/$(PROGRAM).bin
+EXE     = $(EXEDIR)/$(PROGRAM).x
 
 # rules
 
