@@ -62,8 +62,13 @@ program kappa_coupling
 
    character(len=80) :: argument, data_file
    character(len=40) :: particle, n_char
+   character(len=5)  :: state_pair
    character(len=5)  :: ovl_symb
    character(len=10) :: vib_symb
+   character(len=3)  :: footnote
+
+   !-- flag for the crossing point above the tunneling energy
+   logical :: above=.true.
 
    !-- b-spline arrays
    real(kind=8), dimension(:), allocatable :: xknot, bscoef
@@ -402,8 +407,8 @@ program kappa_coupling
    write(*,*) "# V^vib = kappa*Delta - semiclassical vibronic coupling (kcal/mol)"
    write(*,*) "# Delta/2 - vibronic coupling in electronically adiabatic limit"
    write(*,'("#",168("="))')
-   write(*,'("#",t4,"i",t8,"j",t12,"i_a",t16,"j_a",t22,"<i|j>",t38,"V^el",t51,"tau_e",t67,"tau_p",t84,"p",t96,&
-   &"kappa",t112,"Delta",t125,"V^el*|<i|j>|",t142,"V^(sc)",t156,"Delta/2")')
+   write(*,'("#",t7,"i",t11,"j",t15,"i_a",t19,"j_a",t25,"<i|j>",t41,"V^el",t54,"tau_e",t70,"tau_p",t87,"p",t99,&
+   &"kappa",t115,"Delta",t128,"V^el*|<i|j>|",t145,"V^(sc)",t159,"Delta/2")')
    write(*,'("#",168("-"))')
 
    do istate=1,nstates
@@ -444,15 +449,19 @@ program kappa_coupling
 
       !-- check if the tunneling energy is below the barrier
 
-      if (xpot_l(ixc).le.0.d0) then
-         write(*,*) "--------------- tunneling energy is above the barrier ------------"
+      above = xpot_l(ixc).ge.0.d0
+      if (above) then
+         footnote = ""
+      else
+         footnote = "***"
+      endif
+
+      if (.not.above) then
+         !write(*,*) "--------------- tunneling energy is above the barrier ------------"
          p_adiabaticity(istate,jstate) = 0.d0
          tau_p(istate,jstate) = 0.d0
-         tau_e(istate,jstate) = 0.d0
          kappa(istate,jstate) = 0.d0
          vib_coupling_kappa(istate,jstate) = 0.d0
-         tunn_splitting(istate,jstate) = 0.d0
-         cycle
       endif
 
       !-- calculate symmetric (plus) and antisymmetric (minus) combinations
@@ -491,18 +500,24 @@ program kappa_coupling
       df = df*kcal2au/a2bohr              ! in a.u./Bohr
 
       !-- calculate tunneling velocity (Eq. 1.9)
-      vt = sqrt(2.d0*(xpot_l(ixc)*kcal2au - tunn_energy)/mass)
+      if (above) then
+         vt = sqrt(2.d0*(xpot_l(ixc)*kcal2au - tunn_energy)/mass)
+      else
+         vt = 0.d0
+      endif
 
       !-- adiabaticity parameter p (Eq. 1.8)
-      p_adiabaticity(istate,jstate) = v12x*v12x/df/vt
+      if (above) then
+         p_adiabaticity(istate,jstate) = v12x*v12x/df/vt
+      endif
 
       !-- tunneling times for electron and proton (Eqs. 4.12-4.13)
-      tau_p(istate,jstate) = v12x/df/vt
+      if (above) tau_p(istate,jstate) = v12x/df/vt
       tau_e(istate,jstate) = 1.d0/v12x
 
       !-- kappa (Eq. 1.7)
       p = p_adiabaticity(istate,jstate)
-      kappa(istate,jstate) = sqrt(2.d0*pi*p)*exp(p*log(p)-p)/dgamma(p+1.d0)
+      if (above) kappa(istate,jstate) = sqrt(2.d0*pi*p)*exp(p*log(p)-p)/dgamma(p+1.d0)
 
       !-- calculate tunneling splitting in the ground state adiabatic potential
 
@@ -537,43 +552,66 @@ program kappa_coupling
       enddo
 
       !-- output the adiabatic potentials for a pair of diabatic potentials
-      !   shifted to align ground state vibrational levels
+      !   shifted to align ground state vibrational levels at zero energy
+      !   so that the tunneling energy is zero
 
-      if (istate.eq.1.and.jstate.eq.1) then
+      write(state_pair,'(i2.2,"-",i2.2)') istate, jstate
 
-         open(unit=1,file=data_file(1:filename_offset)//"_adiabatic.dat")
-         do k=1,n
-            write(1,'(60g20.10)') x(k), pot_ground(k), pot_excited(k)
-         enddo
-         close(1)
+      open(unit=1,file=data_file(1:filename_offset)//"_"//state_pair//"_adiabatic.dat")
+      do k=1,n
+         write(1,'(60g20.10)') x(k), pot_ground(k), pot_excited(k)
+      enddo
+      close(1)
 
-         open(unit=1,file=data_file(1:filename_offset)//"_plus-minus.dat")
-         do k=1,n
-            write(1,'(60g20.10)') x(k), wavef_plus(k), wavef_minus(k), &
-            & wavef_ground(k,split_level_plus), wavef_ground(k,split_level_minus)
-         enddo
-         close(1)
-
-      endif
+      open(unit=1,file=data_file(1:filename_offset)//"_"//state_pair//"_plus-minus.dat")
+      do k=1,n
+         write(1,'(60g20.10)') x(k), wavef_plus(k), wavef_minus(k), &
+         & wavef_ground(k,split_level_plus), wavef_ground(k,split_level_minus)
+      enddo
+      close(1)
 
       tunn_splitting(istate,jstate) = abs(en_ground(split_level_minus) - en_ground(split_level_plus))
 
       !-- half of this tunneling splitting times kappa
       !   is the semiclassical vibronic coupling
 
-      vib_coupling_kappa(istate,jstate) = 0.5d0*kappa(istate,jstate)*tunn_splitting(istate,jstate)
+      if (above) vib_coupling_kappa(istate,jstate) = 0.5d0*kappa(istate,jstate)*tunn_splitting(istate,jstate)
 
       !-- output the tables
 
-      write(*,'(4i4,10g15.6)')&
-      & istate-1, jstate-1, split_level_plus-1, split_level_minus-1, vib_overlap(istate,jstate), v12x*au2kcal,&
-      & tau_e(istate,jstate)*au2fs, tau_p(istate,jstate)*au2fs,&
-      & p_adiabaticity(istate,jstate), kappa(istate,jstate), tunn_splitting(istate,jstate),&
-      & vib_coupling_product(istate,jstate), vib_coupling_kappa(istate,jstate), 0.5d0*tunn_splitting(istate,jstate)
+      if (above) then
+         write(*,'(3x,4i4,10g15.6)')&
+         & istate-1, jstate-1, split_level_plus-1, split_level_minus-1,&
+         & vib_overlap(istate,jstate),&
+         & v12x*au2kcal,&
+         & tau_e(istate,jstate)*au2fs,&
+         & tau_p(istate,jstate)*au2fs,&
+         & p_adiabaticity(istate,jstate),&
+         & kappa(istate,jstate),&
+         & tunn_splitting(istate,jstate),&
+         & vib_coupling_product(istate,jstate),&
+         & vib_coupling_kappa(istate,jstate),&
+         & 0.5d0*tunn_splitting(istate,jstate)
+      else
+         write(*,'("(*)",4i4,3g15.6,3a15,2g15.6,a15,g15.6)')&
+         & istate-1, jstate-1, split_level_plus-1, split_level_minus-1,&
+         & vib_overlap(istate,jstate),&
+         & v12x*au2kcal,&
+         & tau_e(istate,jstate)*au2fs,&
+         & "------n/a------",&
+         & "------n/a------",&
+         & "------n/a------",&
+         & tunn_splitting(istate,jstate),&
+         & vib_coupling_product(istate,jstate),&
+         & "------n/a------",&
+         & 0.5d0*tunn_splitting(istate,jstate)
+      endif
 
       enddo
    enddo
 
+   write(*,'("#",168("-"))')
+   write(*,'("# (*) - the crossing point is below the tunneling energy: semiclassical coupling can not be calculated")')
    write(*,'("#",168("="))')
 
    open(unit=2,file=data_file(1:filename_offset)//"_vibcouplings_product.dat")
