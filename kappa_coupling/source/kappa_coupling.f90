@@ -62,13 +62,13 @@ program kappa_coupling
 
    character(len=80) :: argument, data_file
    character(len=40) :: particle, n_char
-   character(len=5)  :: state_pair
+   character(len=3)  :: state_pair
    character(len=5)  :: ovl_symb
    character(len=10) :: vib_symb
    character(len=3)  :: footnote
 
    !-- flag for the crossing point above the tunneling energy
-   logical :: above=.true.
+   logical :: above=.true., plus_below=.true., minus_above=.true., ok
 
    !-- b-spline arrays
    real(kind=8), dimension(:), allocatable :: xknot, bscoef
@@ -420,6 +420,8 @@ program kappa_coupling
    &"kappa",t115,"Delta",t128,"V^el*|<i|j>|",t145,"V^(sc)",t159,"Delta/2")')
    write(*,'("#",168("-"))')
 
+   !-- LOOP over the states in the reactant and product potentials
+
    do istate=1,nstates
       do jstate=1,nstates
 
@@ -560,11 +562,16 @@ program kappa_coupling
          if (overlaps_minus(i).gt.overlaps_minus(split_level_minus)) split_level_minus = i
       enddo
 
+      !-- Check if the chosen adiabatic states have the energies below and above the tunneling energy (zero)
+      plus_below = en_ground(split_level_plus).lt.0.d0
+      minus_above = en_ground(split_level_minus).gt.0.d0
+      ok = plus_below.and.minus_above
+
       !-- output the adiabatic potentials for a pair of diabatic potentials
       !   shifted to align ground state vibrational levels at zero energy
       !   so that the tunneling energy is zero
 
-      write(state_pair,'(i2.2,"-",i2.2)') istate, jstate
+      write(state_pair,'(i1,"-",i1)') istate-1, jstate-1
 
       open(unit=1,file=data_file(1:filename_offset)//"_"//state_pair//"_adiabatic.dat")
       do k=1,n
@@ -574,12 +581,18 @@ program kappa_coupling
 
       open(unit=1,file=data_file(1:filename_offset)//"_"//state_pair//"_plus-minus.dat")
       do k=1,n
-         write(1,'(60g20.10)') x(k), wavef_plus(k), wavef_minus(k), &
-         & wavef_ground(k,split_level_plus), wavef_ground(k,split_level_minus)
+         write(1,'(60g20.10)')&
+         & x(k),&
+         & en_ground(split_level_plus),&
+         & en_ground(split_level_minus),&
+         & en_ground(split_level_plus)  + wavef_plus(k)*30.d0,&
+         & en_ground(split_level_minus) + wavef_minus(k)*30.d0,&
+         & en_ground(split_level_plus)  + wavef_ground(k,split_level_plus)*30.d0,&
+         & en_ground(split_level_minus) + wavef_ground(k,split_level_minus)*30.d0
       enddo
       close(1)
 
-      tunn_splitting(istate,jstate) = abs(en_ground(split_level_minus) - en_ground(split_level_plus))
+      tunn_splitting(istate,jstate) = en_ground(split_level_minus) - en_ground(split_level_plus)
 
       !-- half of this tunneling splitting times kappa
       !   is the semiclassical vibronic coupling
@@ -615,6 +628,12 @@ program kappa_coupling
          & "------n/a------",&
          & 0.5d0*tunn_splitting(istate,jstate)
       endif
+
+      !if (.not.ok) then
+      !   write(*,*) "*** Energies of the pair of adiabatic states are not below and above the tunneling energy (E_tun=0)."
+      !   write(*,*) "*** Energy of (|i> + |j>): ", en_ground(split_level_plus)
+      !   write(*,*) "*** Energy of (|i> - |j>): ", en_ground(split_level_minus)
+      !endif
 
       enddo
    enddo
