@@ -65,7 +65,8 @@ program kappa_coupling
    character(len=3)  :: state_pair
    character(len=5)  :: ovl_symb
    character(len=10) :: vib_symb
-   character(len=3)  :: footnote
+   character(len=3)  :: footnote1, footnote2
+   character(len=6)  :: footnote
 
    !-- flag for the crossing point above the tunneling energy
    logical :: above=.true., plus_below=.true., minus_above=.true., ok
@@ -399,7 +400,7 @@ program kappa_coupling
    allocate (wavef_plus(n), wavef_minus(n), overlaps_plus(2*nstates), overlaps_minus(2*nstates))
 
    write(*,*)
-   write(*,'("#",160("="))')
+   write(*,'("#",172("="))')
    write(*,*) "# SEMICLASSICAL PARAMETERS"
    write(*,*) "# i - reactant state index (starting from 0)"
    write(*,*) "# j - product  state index (starting from 0)"
@@ -416,9 +417,9 @@ program kappa_coupling
    write(*,*) "# V^vib = kappa*Delta - semiclassical vibronic coupling (kcal/mol)"
    write(*,*) "# Delta/2 - vibronic coupling in electronically adiabatic limit"
    write(*,'("#",168("="))')
-   write(*,'("#",t7,"i",t11,"j",t15,"i_a",t19,"j_a",t25,"<i|j>",t41,"V^el",t54,"tau_e",t70,"tau_p",t87,"p",t99,&
-   &"kappa",t115,"Delta",t128,"V^el*|<i|j>|",t145,"V^(sc)",t159,"Delta/2")')
-   write(*,'("#",168("-"))')
+   write(*,'("#",t10,"i",t14,"j",t18,"i_a",t22,"j_a",t28,"<i|j>",t44,"V^el",t57,"tau_e",t73,"tau_p",t90,"p",t102,&
+   &"kappa",t118,"Delta",t131,"V^el*|<i|j>|",t148,"V^(sc)",t162,"Delta/2")')
+   write(*,'("#",172("-"))')
 
    !-- LOOP over the states in the reactant and product potentials
 
@@ -461,11 +462,6 @@ program kappa_coupling
       !-- check if the tunneling energy is below the barrier
 
       above = xpot_l(ixc).ge.0.d0
-      if (above) then
-         footnote = ""
-      else
-         footnote = "***"
-      endif
 
       if (.not.above) then
          !write(*,*) "--------------- tunneling energy is above the barrier ------------"
@@ -592,7 +588,7 @@ program kappa_coupling
       enddo
       close(1)
 
-      tunn_splitting(istate,jstate) = en_ground(split_level_minus) - en_ground(split_level_plus)
+      tunn_splitting(istate,jstate) = abs(en_ground(split_level_minus) - en_ground(split_level_plus))
 
       !-- half of this tunneling splitting times kappa
       !   is the semiclassical vibronic coupling
@@ -602,7 +598,20 @@ program kappa_coupling
       !-- output the tables
 
       if (above) then
-         write(*,'(3x,4i4,10g15.6)')&
+         footnote1 = "   "
+      else
+         footnote1 = "(*)"
+      endif
+      if (ok) then
+         footnote2 = "   "
+      else
+         footnote2 = "(x)"
+      endif
+      footnote = footnote1//footnote2
+
+
+      if (above) then
+         write(*,'(a6,4i4,10g15.6)') footnote,&
          & istate-1, jstate-1, split_level_plus-1, split_level_minus-1,&
          & vib_overlap(istate,jstate),&
          & v12x*au2kcal,&
@@ -615,7 +624,7 @@ program kappa_coupling
          & vib_coupling_kappa(istate,jstate),&
          & 0.5d0*tunn_splitting(istate,jstate)
       else
-         write(*,'("(*)",4i4,3g15.6,3a15,2g15.6,a15,g15.6)')&
+         write(*,'(a6,4i4,3g15.6,3a15,2g15.6,a15,g15.6)') footnote,&
          & istate-1, jstate-1, split_level_plus-1, split_level_minus-1,&
          & vib_overlap(istate,jstate),&
          & v12x*au2kcal,&
@@ -638,9 +647,10 @@ program kappa_coupling
       enddo
    enddo
 
-   write(*,'("#",168("-"))')
+   write(*,'("#",172("-"))')
    write(*,'("# (*) - the crossing point is below the tunneling energy: semiclassical coupling can not be calculated")')
-   write(*,'("#",168("="))')
+   write(*,'("# (x) - the pair of adiabatic tunneling levels are not below and above the tunneling energy")')
+   write(*,'("#",172("="))')
 
    open(unit=2,file=data_file(1:filename_offset)//"_vibcouplings_product.dat")
    do i=1,nstates
