@@ -416,7 +416,7 @@ program kappa_coupling
    write(*,*) "# V^el*<i|j> - vibronic coupling in electronically nonadiabatic limit (kcal/mol)"
    write(*,*) "# V^vib = kappa*Delta - semiclassical vibronic coupling (kcal/mol)"
    write(*,*) "# Delta/2 - vibronic coupling in electronically adiabatic limit"
-   write(*,'("#",168("="))')
+   write(*,'("#",172("="))')
    write(*,'("#",t10,"i",t14,"j",t18,"i_a",t22,"j_a",t28,"<i|j>",t44,"V^el",t57,"tau_e",t73,"tau_p",t90,"p",t102,&
    &"kappa",t118,"Delta",t131,"V^el*|<i|j>|",t148,"V^(sc)",t162,"Delta/2")')
    write(*,'("#",172("-"))')
@@ -533,12 +533,13 @@ program kappa_coupling
       wavef_ground = 0.d0
       call schroedinger(n,xh,mass,pot_ground,en_ground,wavef_ground)
 
-      !-- find two states with the largest overlaps with symmetric and antisymmetric
-      !   combinations of the reactant and product diabatic states;
-      !   splitting between these two levels is the tunneling splitting
-      !   for a given tunneling energy
+      !-- find two distinct states with the largest overlaps with
+      !   symmetric and antisymmetric combinations of the reactant
+      !   and product diabatic states; splitting between these two levels
+      !   is the tunneling splitting for a given tunneling energy
 
       !-- absolute values of overlaps
+
       do i=1,2*nstates
          overlaps_plus(i)  = 0.d0
          overlaps_minus(i) = 0.d0
@@ -547,15 +548,25 @@ program kappa_coupling
             overlaps_minus(i) = overlaps_minus(i) + wavef_minus(k)*wavef_ground(k,i)
          enddo
       enddo
+
       overlaps_plus  = abs(overlaps_plus)
       overlaps_minus = abs(overlaps_minus)
 
       !-- find the indices of the largest overlaps
-      split_level_plus  = 1
-      split_level_minus = 1
+
+      split_level_plus = 1
       do i=1,2*nstates
-         if (overlaps_plus(i) .gt.overlaps_plus(split_level_plus))  split_level_plus  = i
-         if (overlaps_minus(i).gt.overlaps_minus(split_level_minus)) split_level_minus = i
+         if (overlaps_plus(i).gt.overlaps_plus(split_level_plus)) split_level_plus = i
+      enddo
+
+      if (split_level_plus.lt.2*nstates) then
+         split_level_minus = split_level_plus + 1
+      else
+         split_level_minus = split_level_plus - 1
+      endif
+
+      do i=1,2*nstates
+         if (overlaps_minus(i).gt.overlaps_minus(split_level_minus).and.i.ne.split_level_plus) split_level_minus = i
       enddo
 
       !-- Check if the chosen adiabatic states have the energies below and above the tunneling energy (zero)
@@ -572,6 +583,14 @@ program kappa_coupling
       open(unit=1,file=data_file(1:filename_offset)//"_"//state_pair//"_adiabatic.dat")
       do k=1,n
          write(1,'(60g20.10)') x(k), pot_ground(k), pot_excited(k)
+      enddo
+      close(1)
+
+      !-- output the vibrational wavefunctions in the ground state adiabatic potential
+
+      open(unit=1,file=data_file(1:filename_offset)//"_"//state_pair//"_adiabatic_wavef.dat")
+      do i=1,n
+         write(1,'(60g20.10)') x(i), pot_ground(i), (en_ground(k),en_ground(k) + wavef_ground(i,k)*30.d0, k=1,2*nstates)
       enddo
       close(1)
 
