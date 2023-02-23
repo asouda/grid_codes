@@ -626,7 +626,8 @@ program kappa_coupling
       else
          footnote2 = "(x)"
       endif
-      footnote = footnote1//footnote2
+      !footnote = footnote1//footnote2
+      footnote = footnote1
 
 
       if (above) then
