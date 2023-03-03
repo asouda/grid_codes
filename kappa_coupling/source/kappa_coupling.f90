@@ -669,7 +669,7 @@ program kappa_coupling
 
    write(*,'("#",172("-"))')
    write(*,'("# (*) - the crossing point is below the tunneling energy: semiclassical coupling can not be calculated")')
-   write(*,'("# (x) - the pair of adiabatic tunneling levels are not below and above the tunneling energy")')
+   !write(*,'("# (x) - the pair of adiabatic tunneling levels are not below and above the tunneling energy")')
    write(*,'("#",172("="))')
 
    open(unit=2,file=data_file(1:filename_offset)//"_vibcouplings_product.dat")
