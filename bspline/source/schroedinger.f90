@@ -19,7 +19,7 @@ subroutine schroedinger(npnts,xint,mass,potential,energy,wavefunction)
 !                                         i - grid point;
 !                                         j - quantum number.
 !
-!  Accuracy: integer*4 and real*8
+!  Accuracy: integer*4 and real(kind=8)
 !
 !  Initial version: 11/26/2003
 !
@@ -36,78 +36,81 @@ subroutine schroedinger(npnts,xint,mass,potential,energy,wavefunction)
 !=======================================================================
    implicit none
 
-   ! input/output variables
+   !-- input/output variables
    integer, intent(in)                          :: npnts
-   real*8,  intent(in)                          :: xint
-   real*8,  intent(in)                          :: mass
-   real*8,  intent(in),  dimension(npnts)       :: potential
-   real*8,  intent(out), dimension(npnts)       :: energy
-   real*8,  intent(out), dimension(npnts,npnts) :: wavefunction
+   real(kind=8),  intent(in)                          :: xint
+   real(kind=8),  intent(in)                          :: mass
+   real(kind=8),  intent(in),  dimension(npnts)       :: potential
+   real(kind=8),  intent(out), dimension(npnts)       :: energy
+   real(kind=8),  intent(out), dimension(npnts,npnts) :: wavefunction
 
-   ! parameters
-   real*8, parameter :: au2kcal = 627.5095d0
-   real*8, parameter :: kcal2au = 1.d0/au2kcal
-   real*8, parameter :: bohr2a  = 0.529177249d0
-   real*8, parameter :: a2bohr  = 1.d0/bohr2a
-   real*8, parameter :: pi      = 3.14159265358979d0
-   real*8, parameter :: hbar    = 1.d0
+   !-- parameters
+   real(kind=8), parameter :: au2kcal = 627.5095d0
+   real(kind=8), parameter :: kcal2au = 1.d0/au2kcal
+   real(kind=8), parameter :: bohr2a  = 0.529177249d0
+   real(kind=8), parameter :: a2bohr  = 1.d0/bohr2a
+   real(kind=8), parameter :: pi      = 3.14159265358979d0
+   real(kind=8), parameter :: hbar    = 1.d0
 
-   ! local variables
+   !-- local variables
    integer :: i, j, ierr
-   real*8 :: xint_au
-   real*8, allocatable, dimension(:,:) :: hamiltonian    ! Hamiltonian matrix
-   real*8, allocatable, dimension(:,:) :: ekinetic       ! Kinetic energy matrix
-   real*8, allocatable, dimension(:)   :: work1, work2   ! work arrays
+   real(kind=8) :: xint_au
+   real(kind=8), allocatable, dimension(:,:) :: hamiltonian    ! Hamiltonian matrix
+   real(kind=8), allocatable, dimension(:,:) :: ekinetic       ! Kinetic energy matrix
+   real(kind=8), allocatable, dimension(:)   :: work1, work2   ! work arrays
 
-   ! check whether npnts is an integer power of two
+   !-- check whether npnts is an integer power of two
 
    if ( npnts.le.0 .or. .not.power2(npnts) ) then
-      write(*,*) 'number of grid points (',npnts,') is invalid...'
+      write(*,*) 'number of grid points (',npnts,') is invalid, should be power of 2'
       stop
    endif
 
-   ! Allocate arrays for the Hamiltonian matrix and kinetic energy matrix
+   !-- Allocate arrays for the Hamiltonian matrix and kinetic energy matrix
+
    allocate (hamiltonian(npnts,npnts))
    hamiltonian = 0.d0
    allocate (ekinetic(npnts,npnts))
    ekinetic = 0.d0
 
-   ! Allocate work arrays
-   allocate (work1(npnts),work2(npnts))
+   !-- Allocate work arrays
+   allocate (work1(npnts), work2(npnts))
    work1 = 0.d0
    work2 = 0.d0
 
-   ! Calculate kinetic energy matrix (Fast Fourier transform)
+   !-- Calculate kinetic energy matrix (using FFT)
    xint_au = npnts * xint*a2bohr / (npnts-1)
-   call gridke(npnts,xint_au,ekinetic)
+   call gridke(npnts, xint_au, ekinetic)
    ekinetic = ekinetic/mass
 
-   ! add potential and kinetic energy matrices to form
-   ! the hamiltonian matrix
+   !-- add potential and kinetic energy matrices to form
+   !   the full hamiltonian matrix
 
    do i=1,npnts
-      hamiltonian(i,i) = potential(i)*kcal2Au
+      hamiltonian(i,i) = potential(i)*kcal2au
    enddo
 
    hamiltonian = hamiltonian + ekinetic
 
-   ! diagonalize Hamiltonian matrix
+   !-- diagonalize Hamiltonian matrix
    call rs(npnts,npnts,hamiltonian,energy,npnts,wavefunction,work1,work2,ierr)
-      
+
    energy = energy*au2kcal
-      
+
    if (ierr.ne.0) then
       write(*,*) 'Diagonalization error in schroedinger: exit...'
       call clean_memory
       stop
    endif
-       
+
    call clean_memory
    return
 
-   contains
+contains
 
-   logical function power2(n)    ! Checks whether the given integer (N) is a power of two
+   !-- Checks whether the given integer (N) is a power of two
+   logical function power2(n)
+
       implicit none
       integer, intent(in) :: n
 
@@ -151,24 +154,24 @@ subroutine schroedinger(npnts,xint,mass,potential,energy,wavefunction)
    !---------------------------------------------------------
       implicit none
       integer, intent(in) :: npnts_
-      real*8,  intent(in) :: xint_
-      real*8,  intent(out), dimension(npnts_,npnts_) :: hke_
+      real(kind=8),  intent(in) :: xint_
+      real(kind=8),  intent(out), dimension(npnts_,npnts_) :: hke_
 
-      real*8, parameter :: zero=0.0d+00, one=1.0d+00, two=2.0d+00
-      real*8, parameter :: pt5=0.5d+00
+      real(kind=8), parameter :: zero=0.0d+00, one=1.0d+00, two=2.0d+00
+      real(kind=8), parameter :: pt5=0.5d+00
 
       integer :: nn, i, j, k, kk
-      real*8 :: delk
-      real*8, allocatable :: pmom(:),delf(:)
-      
+      real(kind=8) :: delk
+      real(kind=8), allocatable :: pmom(:),delf(:)
+
       allocate (pmom(npnts))
       allocate (delf(2*npnts))
 
       delk = two*pi/xint_
       nn = npnts_/2
       do i=1,nn
-         pmom(i)=(i-1)*delk*hbar
-         pmom(i+nn)=(i-1-nn)*delk*hbar
+         pmom(i) = (i - 1)*delk*hbar
+         pmom(i+nn) = (i - 1 - nn)*delk*hbar
       enddo
 
       do i=1,npnts_
@@ -176,10 +179,10 @@ subroutine schroedinger(npnts,xint,mass,potential,energy,wavefunction)
          do j=1,npnts_
             if (j.eq.i) then
                delf(2*j-1) = one
-	       delf(2*j)   = zero
+               delf(2*j)   = zero
             else
                delf(2*j-1) = zero
-	       delf(2*j)   = zero
+               delf(2*j)   = zero
             endif
          enddo
 
@@ -189,7 +192,7 @@ subroutine schroedinger(npnts,xint,mass,potential,energy,wavefunction)
          call four1(delf,npnts_,1)
 
          do k=1,2*npnts_
-	    kk = k/2 + mod(k,2)
+            kk = k/2 + mod(k,2)
             delf(k)=delf(k)*pmom(kk)**2/two
          enddo
 
@@ -199,7 +202,7 @@ subroutine schroedinger(npnts,xint,mass,potential,energy,wavefunction)
          call four1(delf,npnts_,-1)
 
          do j=1,npnts_
-            hke_(j,i) = delf(2*j-1)/dble(npnts_)
+            hke_(j,i) = delf(2*j-1)/real(npnts_)
          enddo
 
       enddo
@@ -214,10 +217,10 @@ subroutine schroedinger(npnts,xint,mass,potential,energy,wavefunction)
 
       implicit none
       integer, intent(in) :: nn, isign
-      real*8,  intent(inout), dimension(2*nn) :: data
+      real(kind=8),  intent(inout), dimension(2*nn) :: data
 
       integer :: n, j, i, m, mmax, istep
-      real*8 :: WR, WI, WPR, WPI, WTEMP, THETA, TEMPR, TEMPI
+      real(kind=8) :: WR, WI, WPR, WPI, WTEMP, THETA, TEMPR, TEMPI
 
       N = 2*NN
       J = 1
